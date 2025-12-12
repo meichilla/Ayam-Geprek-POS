@@ -28,7 +28,6 @@ function ToggleSwitch({ checked, onChange }) {
 
 export default function TableMaster() {
   const { showToast } = useToast();
-  const router = useRouter();
 
   const [tables, setTables] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -42,15 +41,6 @@ export default function TableMaster() {
     name: "",
     is_active: true,
   });
-
-  /* =========================
-     AUTH CHECK
-     ========================= */
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/login");
-    });
-  }, [router]);
 
   /* =========================
      LOAD DATA

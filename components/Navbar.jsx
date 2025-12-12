@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { isPinEnabled } from "@/lib/settings";
@@ -11,9 +11,15 @@ export default function Navbar({ onLock }) {
   const [loggedIn, setLoggedIn] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
 
+  // 🔒 flag untuk mencegah auth event balikan saat logout
+  const isLoggingOut = useRef(false);
+
   const router = useRouter();
   const pathname = usePathname();
 
+  /* ===============================
+     BACK BUTTON RULES
+  =============================== */
   const noBackPages = [
     "/",
     "/tables",
@@ -25,46 +31,70 @@ export default function Navbar({ onLock }) {
     "/settings",
   ];
 
-  const showBack = !noBackPages.includes(pathname);
+  const showBack = !noBackPages.some(
+    (p) => pathname === p || pathname.startsWith(p + "/")
+  );
 
+  /* ===============================
+     CLOSE MOBILE MENU ON ROUTE CHANGE
+  =============================== */
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
+  /* ===============================
+     PIN STATE (LOCAL STORAGE)
+  =============================== */
   useEffect(() => {
-    setPinEnabled(isPinEnabled());
+    const syncPin = () => setPinEnabled(isPinEnabled());
+    syncPin();
 
-    const onStorage = () => {
-      setPinEnabled(isPinEnabled());
-    };
-
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("storage", syncPin);
+    return () => window.removeEventListener("storage", syncPin);
   }, []);
 
-
+  /* ===============================
+     AUTH STATE (UI ONLY, GUARDED)
+  =============================== */
   useEffect(() => {
+    // initial check
     supabase.auth.getSession().then(({ data }) => {
-      setLoggedIn(!!data.session);
+      if (!isLoggingOut.current) {
+        setLoggedIn(!!data.session);
+      }
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, session) => {
-      setLoggedIn(!!session);
-    });
+    // listen auth change
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (isLoggingOut.current) return; // 🔥 block event saat logout
+        setLoggedIn(!!session);
+      }
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
+  /* ===============================
+     ACTIONS
+  =============================== */
   const handleLogout = async () => {
-    localStorage.removeItem("pin");
-    localStorage.removeItem("pin_enabled");
-    localStorage.removeItem("auto_lock");
+    // 🔥 kunci state supaya navbar tidak muncul lagi
+    isLoggingOut.current = true;
+    setLoggedIn(false);
 
+    // clear local security data
+    localStorage.clear();
 
-    await supabase.auth.signOut();
-    router.replace("/login");
+    try {
+      // logout lokal saja (hindari session_not_found noise)
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {}
+
+    // 🔥 HARD REDIRECT (WAJIB)
+    window.location.href = "/login";
   };
 
   const handleLock = () => {
@@ -74,8 +104,19 @@ export default function Navbar({ onLock }) {
   const linkClass = (path) =>
     pathname === path ? "font-semibold underline" : "";
 
+  /* ===============================
+     HIDE NAVBAR RULES (FINAL)
+  =============================== */
+
+  // 🔥 NAVBAR TIDAK PERNAH BOLEH MUNCUL DI HALAMAN LOGIN
+  if (pathname.startsWith("/login")) return null;
+
+  // 🔐 HIDE JIKA BELUM LOGIN
   if (!loggedIn) return null;
 
+  /* ===============================
+     RENDER
+  =============================== */
   return (
     <nav className="w-full bg-white border-b shadow-sm sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -113,7 +154,6 @@ export default function Navbar({ onLock }) {
               Lock
             </button>
           )}
-
 
           <button
             onClick={handleLogout}

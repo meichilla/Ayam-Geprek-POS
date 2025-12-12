@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-
 
 export default function TakeAwayPage() {
   const [orders, setOrders] = useState([]);
@@ -12,16 +9,6 @@ export default function TakeAwayPage() {
   const [filterType, setFilterType] = useState("today");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-
-    const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
   
   useEffect(() => {
     loadOrders();

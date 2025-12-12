@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { useToast } from "@/components/Toast";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function MenuMaster() {
   const { showToast } = useToast();
@@ -37,16 +35,6 @@ export default function MenuMaster() {
     details: "",
     image_url: "",
   });
-
-  const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
 
   // LOAD DATA
   useEffect(() => {

@@ -14,8 +14,6 @@ import {
 } from "chart.js";
 
 import { Line, Bar, Pie } from "react-chartjs-2";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
 
 ChartJS.register(
   CategoryScale,
@@ -37,16 +35,6 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
-
-  const router = useRouter();
-  
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
 
   useEffect(() => {
     loadData();

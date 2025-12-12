@@ -5,8 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast"; // ⬅️ IMPORT TOAST
 
 export default function CheckoutPage() {
-  const { id: tableId } = useParams();
-  const router = useRouter();
+  const { id: tableId } = useParams();z
   const { showToast } = useToast(); // ⬅️ TOAST HOOK
 
   const [draft, setDraft] = useState(null);

@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import React from "react";
 import { useToast } from "@/components/Toast";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
 
 export default function CategoryMaster() {
   const { showToast } = useToast();
@@ -27,15 +25,6 @@ export default function CategoryMaster() {
     type: "makanan",
   });
 
-  const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
   // =====================================================
   // LOAD DATA
   // =====================================================

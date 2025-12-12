@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function OnlineOrdersPage() {
   const { showToast } = useToast();
@@ -12,16 +10,6 @@ export default function OnlineOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmId, setConfirmId] = useState(null);
-
-  const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
 
   useEffect(() => {
     loadData();

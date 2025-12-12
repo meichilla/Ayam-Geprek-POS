@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useToast } from "@/components/Toast";   // ⬅️ TOAST IMPORT
+import { useToast } from "@/components/Toast";
 
 export default function TakeawayCheckoutPage() {
   const { id: orderId } = useParams();
   const router = useRouter();
-  const { showToast } = useToast(); // ⬅️ HOOK
+  const { showToast } = useToast();
 
   const [order, setOrder] = useState(null);
   const [items, setItems] = useState([]);

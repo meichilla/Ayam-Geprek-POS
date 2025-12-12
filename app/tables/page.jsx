@@ -2,23 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function TablesPage() {
   const { showToast } = useToast();
   const [tables, setTables] = useState([]);
   const [drafts, setDrafts] = useState([]);
-
-  const router = useRouter();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/login");
-      }
-    });
-  }, [router]);
 
   useEffect(() => {
     loadData();

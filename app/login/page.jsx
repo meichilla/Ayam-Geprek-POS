@@ -12,14 +12,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data?.session) {
-        router.replace("/");
-      }
-    });
-  }, [router]);
-
   const handleLogin = async (e) => {
     e.preventDefault();
     if (loading) return;
