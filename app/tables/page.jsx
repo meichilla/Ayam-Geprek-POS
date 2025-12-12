@@ -30,7 +30,7 @@ export default function TablesPage() {
       const t = await fetch("/api/tables").then((r) => r.json());
       const d = await fetch("/api/orders/draft").then((r) => r.json());
 
-      setTables(t);
+      setTables(t.filter((tbl) => tbl.is_active));
       setDrafts(d);
     } catch (err) {
       showToast("Gagal memuat data meja", "error");

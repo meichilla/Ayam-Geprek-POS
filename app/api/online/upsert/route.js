@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function POST(req) {
   try {
+    const supabase = supabaseServer();
     const body = await req.json();
     const {
       order_id,
@@ -18,26 +19,35 @@ export async function POST(req) {
     if (!orderId) {
       orderId = crypto.randomUUID();
 
-      const { error: createErr } = await supabase.from("orders").insert({
-        id: orderId,
-        status: "draft",
-        order_type: order_type || "online",
-        payment_method,
-        source,
-        external_id,
-        customer_name,
-        total_price: 0,
-      });
+      const { error: createErr } = await supabase
+        .from("orders")
+        .insert({
+          id: orderId,
+          status: "draft",
+          order_type: order_type || "online",
+          payment_method,
+          source,
+          external_id,
+          customer_name,
+          total_price: 0,
+        });
 
       if (createErr) {
-        console.error("Insert order error:", createErr);
-        return Response.json({ error: createErr }, { status: 500 });
+        return Response.json({ error: createErr.message }, { status: 500 });
       }
     }
 
-    await supabase.from("order_items").delete().eq("order_id", orderId);
+    // =============================
+    // RESET ITEMS
+    // =============================
+    await supabase
+      .from("order_items")
+      .delete()
+      .eq("order_id", orderId);
 
-    // Insert baru
+    // =============================
+    // INSERT ITEMS
+    // =============================
     if (items.length > 0) {
       const payload = items.map((it) => ({
         order_id: orderId,
@@ -53,15 +63,16 @@ export async function POST(req) {
         .insert(payload);
 
       if (itemErr) {
-        console.error("Item insert error:", itemErr);
-        return Response.json({ error: itemErr }, { status: 500 });
+        return Response.json({ error: itemErr.message }, { status: 500 });
       }
     }
 
-    // Update total
+    // =============================
+    // UPDATE TOTAL
+    // =============================
     const total = items.reduce((s, it) => s + (it.subtotal ?? 0), 0);
 
-    await supabase
+    const { error: updateErr } = await supabase
       .from("orders")
       .update({
         total_price: total,
@@ -70,6 +81,10 @@ export async function POST(req) {
         customer_name,
       })
       .eq("id", orderId);
+
+    if (updateErr) {
+      return Response.json({ error: updateErr.message }, { status: 500 });
+    }
 
     return Response.json({
       order: {
@@ -81,7 +96,6 @@ export async function POST(req) {
       },
     });
   } catch (err) {
-    console.error("UPSERT ONLINE ERROR:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

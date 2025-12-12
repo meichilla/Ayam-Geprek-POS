@@ -1,6 +1,7 @@
-import { supabase } from "../../../../lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";;
 
 export async function POST(req) {
+  const supabase = supabaseServer();
   const body = await req.json();
   const { table_id, order_id, items, order_type = "dine-in", customer_name, source } = body;
 

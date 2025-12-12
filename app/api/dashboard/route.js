@@ -1,12 +1,14 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET(req) {
   try {
+    const supabase = supabaseServer();
+
     const { searchParams } = new URL(req.url);
 
     const range = searchParams.get("range") || "day";
     const start = searchParams.get("start");
-    const end   = searchParams.get("end");
+    const end = searchParams.get("end");
 
     // === DATE RANGE ===
     const today = new Date();
@@ -14,23 +16,23 @@ export async function GET(req) {
 
     if (range === "day") {
       fromDate = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      toDate   = new Date().toISOString();
+      toDate = new Date().toISOString();
     } else if (range === "week") {
       const d = new Date();
       d.setDate(d.getDate() - 7);
       fromDate = d.toISOString();
-      toDate   = new Date().toISOString();
+      toDate = new Date().toISOString();
     } else if (range === "month") {
       const d = new Date();
       d.setDate(d.getDate() - 30);
       fromDate = d.toISOString();
-      toDate   = new Date().toISOString();
+      toDate = new Date().toISOString();
     } else if (range === "custom" && start && end) {
       fromDate = new Date(start).toISOString();
-      toDate   = new Date(`${end}T23:59:59`).toISOString();
+      toDate = new Date(`${end}T23:59:59`).toISOString();
     } else {
       fromDate = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-      toDate   = new Date().toISOString();
+      toDate = new Date().toISOString();
     }
 
     // === GET ORDERS ===
@@ -68,7 +70,7 @@ export async function GET(req) {
 
     // === SUMMARY ===
     const totalSales = trx.reduce((s, t) => s + (t.total_price ?? 0), 0);
-    const totalTrx   = trx.length;
+    const totalTrx = trx.length;
 
     // === Payment Method Breakdown ===
     const paymentSummary = {};

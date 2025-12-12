@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";;
 
 export async function GET(req) {
+  const supabase = supabaseServer();
   const { searchParams } = new URL(req.url);
 
   const order_type = searchParams.get("order_type");

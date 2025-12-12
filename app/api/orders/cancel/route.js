@@ -1,6 +1,7 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";;
 
 export async function POST(req) {
+  const supabase = supabaseServer();
   const { order_id } = await req.json();
 
   if (!order_id) {

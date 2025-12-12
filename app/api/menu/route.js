@@ -1,8 +1,17 @@
-import { supabase } from "../../../lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
-  const { data, error } = await supabase.from("menu").select("*");
+  const supabase = supabaseServer();
 
-  if (error) return Response.json({ error }, { status: 500 });
-  return Response.json(data);
+  const { data, error } = await supabase
+    .from("menu")
+    .select("*")
+    .order("name", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  return Response.json(data ?? []);
 }

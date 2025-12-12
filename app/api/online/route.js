@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET() {
   try {
+    const supabase = supabaseServer();
     const { data: orders, error } = await supabase
       .from("orders")
       .select(`
@@ -23,8 +24,7 @@ export async function GET() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("GET /api/online error:", error);
-      return Response.json({ error }, { status: 500 });
+      return Response.json({ error: error.message }, { status: 500 });
     }
 
     const drafts = orders.filter((o) => o.status === "draft");
@@ -40,12 +40,11 @@ export async function GET() {
       total_price: o.total_price,
       created_at: o.created_at,
       status: o.status,
-      items: o.order_items || [],
+      items: o.order_items ?? [],
     }));
 
     return Response.json(result);
   } catch (err) {
-    console.error("API /online error:", err);
     return Response.json({ error: "Server error" }, { status: 500 });
   }
 }

@@ -21,6 +21,13 @@ export default function MasterPage() {
         >
           🏷️ Category
         </Link>
+
+        <Link
+          href="/master/tables"
+          className="p-4 border rounded-lg hover:bg-gray-50"
+        >
+          🪑 Meja
+        </Link>
       </div>
     </div>
   );

@@ -1,10 +1,15 @@
-import { supabase } from "../../../lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 // =============================
 // GET → Ambil semua kategori
 // =============================
 export async function GET() {
-  const { data, error } = await supabase.from("categories").select("*");
+  const supabase = supabaseServer();
+
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
 
   if (error) {
     console.error(error);
@@ -18,6 +23,7 @@ export async function GET() {
 // POST → Tambah kategori
 // =============================
 export async function POST(req) {
+  const supabase = supabaseServer();
   const { name, type } = await req.json();
 
   if (!name || !type) {
@@ -45,6 +51,7 @@ export async function POST(req) {
 // PUT → Update kategori
 // =============================
 export async function PUT(req) {
+  const supabase = supabaseServer();
   const { id, name, type } = await req.json();
 
   if (!id || !name || !type) {
@@ -68,9 +75,10 @@ export async function PUT(req) {
 }
 
 // =============================
-// DELETE
+// DELETE → Hapus kategori
 // =============================
 export async function DELETE(req) {
+  const supabase = supabaseServer();
   const { id } = await req.json();
 
   if (!id) {
@@ -80,7 +88,10 @@ export async function DELETE(req) {
     );
   }
 
-  const { error } = await supabase.from("categories").delete().eq("id", id);
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", id);
 
   if (error) {
     console.error(error);

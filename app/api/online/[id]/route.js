@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function GET(req) {
   try {
+    const supabase = supabaseServer();
     const pathname = req.nextUrl.pathname;
     const id = pathname.split("/").pop();
 
