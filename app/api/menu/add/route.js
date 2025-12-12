@@ -1,0 +1,11 @@
+import { supabase } from "../../../../lib/supabaseClient";
+
+export async function POST(req) {
+  const body = await req.json();
+
+  const { error } = await supabase.from("menu").insert(body);
+
+  if (error) return Response.json({ error }, { status: 500 });
+
+  return Response.json({ success: true });
+}
