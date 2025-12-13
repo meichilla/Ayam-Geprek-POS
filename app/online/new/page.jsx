@@ -303,7 +303,7 @@ export default function OnlineNewOrderPage() {
           className={`flex-1 py-3 rounded-lg font-semibold ${
             items.length === 0
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-green-600 text-white"
+              : "bg-black text-white hover:bg-gray-900"
           }`}
         >
           Checkout

@@ -9,7 +9,7 @@ export default function TakeAwayPage() {
   const [filterType, setFilterType] = useState("today");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-  
+
   useEffect(() => {
     loadOrders();
   }, []);
@@ -80,16 +80,17 @@ export default function TakeAwayPage() {
   }
 
   return (
-    <div className="p-4 pb-24 relative">
-      {/* HEADER WITH FILTER + RANGE (KANAN) */}
-      <div className="flex justify-between items-center mb-4">
+    <div className="p-4 pb-24 relative max-w-4xl mx-auto">
+
+      {/* HEADER + FILTER (RESPONSIVE) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h1 className="text-lg font-semibold">Take Away</h1>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="border p-2 rounded text-sm"
+            className="border rounded px-3 py-1.5 text-sm bg-white w-full sm:w-auto"
           >
             <option value="all">Semua</option>
             <option value="today">Hari Ini</option>
@@ -98,16 +99,19 @@ export default function TakeAwayPage() {
           </select>
 
           {filterType === "range" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <input
                 type="date"
-                className="border p-2 rounded text-sm"
+                className="border rounded px-3 py-1.5 text-sm w-full sm:w-auto"
                 value={rangeStart}
                 onChange={(e) => setRangeStart(e.target.value)}
               />
+
+              <span className="hidden sm:inline text-sm text-gray-500">–</span>
+
               <input
                 type="date"
-                className="border p-2 rounded text-sm"
+                className="border rounded px-3 py-1.5 text-sm w-full sm:w-auto"
                 value={rangeEnd}
                 onChange={(e) => setRangeEnd(e.target.value)}
               />

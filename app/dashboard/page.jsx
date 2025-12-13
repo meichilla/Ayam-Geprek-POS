@@ -29,7 +29,7 @@ ChartJS.register(
 export default function DashboardPage() {
   const [transactions, setTransactions] = useState([]);
   const [detail, setDetail] = useState(null);
-
+  const [topItems, setTopItems] = useState([]);
   // Filter state
   const [range, setRange] = useState("day");
   const [startDate, setStartDate] = useState("");
@@ -50,6 +50,7 @@ export default function DashboardPage() {
     const data = await res.json();
 
     setTransactions(data.transactions || []);
+    setTopItems(data.topItems || []);
   }
 
   // ============================================================
@@ -57,13 +58,10 @@ export default function DashboardPage() {
   // ============================================================
   const filteredTransactions = transactions.filter((trx) => {
     if (sourceFilter === "all") return true;
-
     if (sourceFilter === "dine-in") return trx.source === "dine-in";
     if (sourceFilter === "takeaway") return trx.source === "takeaway";
-
     if (sourceFilter === "online")
       return ["grabfood", "shopeefood", "gofood"].includes(trx.source);
-
     return true;
   });
 
@@ -89,24 +87,6 @@ export default function DashboardPage() {
 
   const paymentLabels = Object.keys(filteredPaymentSummary);
   const paymentValues = Object.values(filteredPaymentSummary);
-
-  // ============================================================
-  //  TOP ITEMS BASED ON FILTER
-  // ============================================================
-  const itemsMap = {};
-
-  filteredTransactions.forEach((trx) => {
-    trx.items?.forEach((it) => {
-      if (!itemsMap[it.menu_name]) {
-        itemsMap[it.menu_name] = { name: it.menu_name, qty: 0 };
-      }
-      itemsMap[it.menu_name].qty += it.quantity;
-    });
-  });
-
-  const topItems = Object.values(itemsMap)
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 10);
 
   // ============================================================
   //  HOURLY SALES + HOURLY COUNT (FILTERED)
@@ -218,50 +198,60 @@ export default function DashboardPage() {
       <h1 className="text-xl font-bold mb-4">Dashboard</h1>
 
       {/* FILTER BAR */}
-      <div className="bg-white p-4 border rounded shadow mb-6 flex justify-between items-center">
-        {/* LEFT: RANGE */}
-        <div className="flex gap-3 items-center flex-wrap">
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            className="border p-2 rounded"
-          >
-            <option value="day">Harian</option>
-            <option value="week">7 Hari</option>
-            <option value="month">30 Hari</option>
-            <option value="custom">Custom</option>
-          </select>
+      <div className="bg-white p-4 border rounded shadow mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-          {range === "custom" && (
-            <>
-              <input
-                type="date"
-                className="border p-2 rounded"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <span>sampai</span>
-              <input
-                type="date"
-                className="border p-2 rounded"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </>
-          )}
+          {/* LEFT: RANGE */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 flex-wrap">
+            <select
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+              className="border p-2 rounded text-sm w-full sm:w-auto"
+            >
+              <option value="day">Harian</option>
+              <option value="week">7 Hari</option>
+              <option value="month">30 Hari</option>
+              <option value="custom">Custom</option>
+            </select>
+
+            {range === "custom" && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+                <input
+                  type="date"
+                  className="border p-2 rounded text-sm w-full sm:w-auto"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+
+                <span className="hidden sm:inline text-sm text-gray-500">
+                  sampai
+                </span>
+
+                <input
+                  type="date"
+                  className="border p-2 rounded text-sm w-full sm:w-auto"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: SOURCE FILTER */}
+          <div className="flex justify-end">
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="border p-2 rounded text-sm w-full sm:w-auto"
+            >
+              <option value="all">Semua</option>
+              <option value="dine-in">Dine-In</option>
+              <option value="takeaway">Take Away</option>
+              <option value="online">Online</option>
+            </select>
+          </div>
+
         </div>
-
-        {/* RIGHT: SOURCE FILTER */}
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="border p-2 rounded text-sm"
-        >
-          <option value="all">Semua</option>
-          <option value="dine-in">Dine-In</option>
-          <option value="takeaway">Take Away</option>
-          <option value="online">Online</option>
-        </select>
       </div>
 
       {/* SUMMARY */}
@@ -315,18 +305,22 @@ export default function DashboardPage() {
       <div className="bg-white p-4 border rounded shadow mb-6">
         <h2 className="font-semibold mb-2">Top 10 Menu Terlaris</h2>
 
-        <Bar
-          data={{
-            labels: topItems.map((i) => i.name),
-            datasets: [
-              {
-                label: "Jumlah Terjual",
-                data: topItems.map((i) => i.qty),
-                backgroundColor: "rgba(250, 204, 21, 0.7)",
-              },
-            ],
-          }}
-        />
+        {topItems?.length === 0 ? (
+          <div className="text-gray-500 text-sm">Tidak ada data</div>
+        ) : (
+          <Bar
+            data={{
+              labels: topItems.map((i) => i.name),
+              datasets: [
+                {
+                  label: "Jumlah Terjual",
+                  data: topItems.map((i) => i.qty),
+                  backgroundColor: "rgba(250, 204, 21, 0.7)",
+                },
+              ],
+            }}
+          />
+        )}
       </div>
 
       {/* SALES PER HOUR */}
@@ -378,9 +372,10 @@ export default function DashboardPage() {
               {renderBadge(trx)}
 
               {/* ONLINE INFO */}
-              {["grabfood", "shopeefood", "gofood"].includes(trx.source) && (
+              {["grabfood", "shopeefood", "gofood"].includes(trx.source) && (trx.customer_name || trx.external_id) && (
                 <div className="text-xs text-gray-500">
-                  {trx.customer_name} · #{trx.external_id}
+                  {trx.customer_name ? trx.customer_name : null} <br/>
+                  {trx.external_id ? `#${trx.external_id}` : null}
                 </div>
               )}
 
@@ -400,7 +395,9 @@ export default function DashboardPage() {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}{" "}
-                · {trx.payment_method?.toUpperCase()}
+              </div>
+              <div className="text-xs text-gray-500">
+                {trx.payment_method?.toUpperCase()}
               </div>
             </div>
 

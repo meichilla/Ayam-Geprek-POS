@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useToast } from "@/components/Toast"; // ⬅️ TOAST IMPORT
+import { useToast } from "@/components/Toast";
 
 export default function TakeAwayNewPage() {
   const [menu, setMenu] = useState([]);
@@ -10,10 +10,9 @@ export default function TakeAwayNewPage() {
 
   const [draft, setDraft] = useState(null);
   const [items, setItems] = useState([]);
-
   const [customerName, setCustomerName] = useState("");
 
-  const { showToast } = useToast(); // ⬅️ HOOK
+  const { showToast } = useToast();
 
   // =======================================================
   // LOAD MENU + CATEGORY
@@ -71,12 +70,12 @@ export default function TakeAwayNewPage() {
   const total = items.reduce((s, it) => s + (it.subtotal ?? 0), 0);
 
   // =======================================================
-  // SAVE DRAFT → PAKAI TOAST
+  // SAVE DRAFT (REUSABLE)
   // =======================================================
-  async function saveDraft() {
+  async function saveDraft({ silent = false } = {}) {
     if (items.length === 0) {
-      showToast("Tambahkan item terlebih dahulu", "error");
-      return;
+      if (!silent) showToast("Tambahkan item terlebih dahulu", "error");
+      return null;
     }
 
     const body = {
@@ -96,28 +95,46 @@ export default function TakeAwayNewPage() {
     const data = await res.json();
 
     if (!res.ok || !data?.order) {
-      showToast("Gagal menyimpan draft", "error");
-      return;
+      if (!silent) showToast("Gagal menyimpan draft", "error");
+      return null;
     }
 
     setDraft(data.order);
-    showToast("Draft berhasil disimpan!", "success");
+
+    if (!silent) {
+      showToast("Draft berhasil disimpan!", "success");
+    }
+
+    return data.order.id;
   }
 
   // =======================================================
-  // CHECKOUT
+  // CHECKOUT (AUTO SAVE DRAFT)
   // =======================================================
-  function goCheckout() {
-    if (!draft?.id) {
-      showToast("Simpan draft terlebih dahulu!", "error");
+  async function goCheckout() {
+    if (items.length === 0) {
+      showToast("Tambahkan item terlebih dahulu", "error");
       return;
     }
 
-    window.location.href = `/takeaway/checkout/${draft.id}`;
+    let orderId = draft?.id;
+
+    // 🔥 AUTO SAVE DRAFT JIKA BELUM ADA
+    if (!orderId) {
+      showToast("Menyimpan draft...", "info");
+      orderId = await saveDraft({ silent: true });
+
+      if (!orderId) {
+        showToast("Gagal menyimpan draft", "error");
+        return;
+      }
+    }
+
+    window.location.href = `/takeaway/checkout/${orderId}`;
   }
 
   // =======================================================
-  // GROUP MENU
+  // GROUP MENU BY CATEGORY
   // =======================================================
   const grouped = categories.map((cat) => ({
     ...cat,
@@ -125,19 +142,23 @@ export default function TakeAwayNewPage() {
   }));
 
   // =======================================================
-  // PAGE RENDER
+  // RENDER
   // =======================================================
   return (
     <div className="p-4 pb-28 max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-3">Take Away Baru</h1>
 
       <div className="text-sm text-gray-600 mb-4">
-        {!draft ? "Draft belum disimpan" : `Draft #${draft.id.slice(0, 6)} tersimpan`}
+        {!draft
+          ? "Draft belum disimpan"
+          : `Draft #${draft.id.slice(0, 6)} tersimpan`}
       </div>
 
       {/* CUSTOMER NAME */}
       <div className="mb-4">
-        <label className="block text-sm mb-1 font-semibold">Nama Customer</label>
+        <label className="block text-sm mb-1 font-semibold">
+          Nama Customer
+        </label>
         <input
           type="text"
           className="border p-2 rounded w-full"
@@ -155,7 +176,7 @@ export default function TakeAwayNewPage() {
           <button
             key={cat.id}
             onClick={() => setActiveCat(cat.id)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold border whitespace-nowrap ${
+            className={`px-4 py-2 rounded-full text-sm font-semibold border ${
               activeCat === cat.id
                 ? "bg-black text-white border-black"
                 : "bg-white text-gray-700"
@@ -177,7 +198,9 @@ export default function TakeAwayNewPage() {
               className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md transition"
             >
               <div className="font-semibold">{item.name}</div>
-              <div className="text-sm text-gray-500">{item.category_name}</div>
+              <div className="text-sm text-gray-500">
+                {item.category_name}
+              </div>
               <div className="font-bold mt-1">
                 Rp {item.price.toLocaleString()}
               </div>
@@ -192,22 +215,24 @@ export default function TakeAwayNewPage() {
         <div className="text-gray-500">Belum ada item</div>
       ) : (
         <div className="space-y-3">
-          {items.map((it, idx) => (
+          {items.map((it) => (
             <div
-              key={`${it.menu_id}-${idx}`}
+              key={it.menu_id}
               className="bg-white p-3 border rounded-lg shadow flex justify-between"
             >
               <div>
                 <div className="font-semibold">{it.menu_name}</div>
                 <div className="text-sm text-gray-600">
-                  Rp {(it.unit_price ?? 0).toLocaleString()}
+                  Rp {it.unit_price.toLocaleString()}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   className="px-2 py-1 bg-gray-200 rounded"
-                  onClick={() => updateQty(it.menu_id, Math.max(1, it.quantity - 1))}
+                  onClick={() =>
+                    updateQty(it.menu_id, Math.max(1, it.quantity - 1))
+                  }
                 >
                   -
                 </button>
@@ -233,10 +258,10 @@ export default function TakeAwayNewPage() {
         </div>
       )}
 
-      {/* FOOTER BUTTONS */}
+      {/* FOOTER */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex gap-3">
         <button
-          onClick={saveDraft}
+          onClick={() => saveDraft()}
           className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-semibold"
         >
           Save Draft
@@ -244,12 +269,7 @@ export default function TakeAwayNewPage() {
 
         <button
           onClick={goCheckout}
-          disabled={!draft}
-          className={`flex-1 py-3 rounded-lg font-semibold ${
-            draft
-              ? "bg-black text-white"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          }`}
+          className="flex-1 py-3 rounded-lg bg-black text-white font-semibold"
         >
           Checkout
         </button>

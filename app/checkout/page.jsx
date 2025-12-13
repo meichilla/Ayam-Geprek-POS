@@ -133,7 +133,7 @@ export default function CheckoutPage() {
 
         <div className="flex flex-col gap-2 mt-2">
 
-          {["cash", "qris", "shopeepay", "gopay", "transfer"].map((pm) => (
+          {["cash", "qriss", "qrisp", "shopeepay", "gopay", "transfer"].map((pm) => (
             <label key={pm} className="flex items-center gap-2">
               <input
                 type="radio"
@@ -142,12 +142,16 @@ export default function CheckoutPage() {
                 checked={paymentMethod === pm}
                 onChange={(e) => setPaymentMethod(e.target.value)}
               />
-              {pm === "qris"
-                ? "QRIS"
+              {pm === "qriss"
+                ? "QRIS S"
+                : pm === "qrisp"
+                ? "QRIS P"
                 : pm === "shopeepay"
-                ? "ShopeePay (QRIS)"
+                ? "ShopeePay"
                 : pm === "gopay"
-                ? "GoPay (QRIS)"
+                ? "GoPay"
+                : pm === "ovo"
+                ? "OVO"
                 : pm === "transfer"
                 ? "Transfer Bank"
                 : "Cash"}

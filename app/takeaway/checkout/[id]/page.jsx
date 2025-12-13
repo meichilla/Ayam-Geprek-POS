@@ -111,10 +111,12 @@ export default function TakeawayCheckoutPage() {
           className="w-full p-2 border rounded mb-3"
         >
           <option value="cash">Cash</option>
-          <option value="qris">QRIS</option>
+          <option value="qrisp">QRIS P</option>
+          <option value="qriss">QRIS S</option>
           <option value="transfer">Transfer Bank</option>
           <option value="gopay">GoPay</option>
           <option value="shopee">ShopeePay</option>
+          <option value="ovo">OVO</option>
         </select>
 
         <label className="text-sm">Uang Dibayar</label>
