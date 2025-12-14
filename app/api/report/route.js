@@ -14,7 +14,7 @@ export async function GET(req) {
     const end = searchParams.get("end");
 
     /* ===============================
-       DATE RANGE (SAMA DENGAN DASHBOARD)
+       DATE RANGE
     =============================== */
     const today = new Date();
     let fromDate, toDate;
@@ -54,6 +54,8 @@ export async function GET(req) {
         supplier_share,
         partner_share,
         order_items (
+          menu_name,
+          quantity,
           subtotal,
           supplier_code
         )
@@ -77,11 +79,12 @@ export async function GET(req) {
           supplier: { revenue: 0, cash_received: 0, cash_pending: 0 },
         },
         supplierPending: {},
+        detail_items: [],
       });
     }
 
     /* ===============================
-       AGGREGATION (P & S)
+       AGGREGATION
     =============================== */
     let supplierRevenue = 0;
     let supplierCashDirect = 0;
@@ -89,6 +92,7 @@ export async function GET(req) {
     let partnerRevenue = 0;
 
     const supplierPending = {};
+    const detail_items = [];
 
     orders.forEach((o) => {
       const isOnline = ONLINE_SOURCES.includes(o.source);
@@ -105,6 +109,14 @@ export async function GET(req) {
       }
 
       (o.order_items || []).forEach((it) => {
+        detail_items.push({
+          menu_name: it.menu_name,
+          quantity: it.quantity,
+          subtotal: it.subtotal,
+          supplier_code: it.supplier_code ?? "UNKNOWN",
+          source: o.source,
+        });
+
         if (!directToSupplier) {
           const code = it.supplier_code || "UNKNOWN";
           supplierPending[code] =
@@ -129,6 +141,7 @@ export async function GET(req) {
         },
       },
       supplierPending,
+      detail_items,
     });
 
   } catch (err) {

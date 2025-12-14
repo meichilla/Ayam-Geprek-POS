@@ -9,8 +9,11 @@ export default function SettlementReportPage() {
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPartnerItems, setShowPartnerItems] = useState(false);
+  const [showSupplierItems, setShowSupplierItems] = useState(false);
 
   const supplierPending = data?.supplierPending ?? {};
+  const detailItems = data?.detail_items ?? [];
 
   useEffect(() => {
     load();
@@ -45,11 +48,7 @@ export default function SettlementReportPage() {
   }
 
   if (loading) {
-    return (
-      <div className="p-4 text-sm text-gray-500">
-        Memuat laporan settlement…
-      </div>
-    );
+    return <div className="p-4 text-sm text-gray-500">Memuat laporan settlement…</div>;
   }
 
   if (error) {
@@ -57,11 +56,7 @@ export default function SettlementReportPage() {
   }
 
   if (!data || !data.summary) {
-    return (
-      <div className="p-4 text-gray-500">
-        Tidak ada data settlement
-      </div>
-    );
+    return <div className="p-4 text-gray-500">Tidak ada data settlement</div>;
   }
 
   const { partner, supplier } = data.summary;
@@ -71,9 +66,11 @@ export default function SettlementReportPage() {
   const totalSupplierRevenue = supplier.revenue ?? 0;
   const grossSales = totalPartnerRevenue + totalSupplierRevenue;
 
+  const partnerItems = detailItems.filter((i) => i.supplier_code === "P");
+  const supplierItems = detailItems.filter((i) => i.supplier_code === "S");
+
   return (
     <div className="p-4 max-w-5xl mx-auto">
-      {/* HEADER */}
       <h1 className="text-xl font-bold mb-1">Settlement Report</h1>
       <p className="text-sm text-gray-500 mb-4">
         Laporan pembagian pendapatan (P) & (S)
@@ -124,35 +121,17 @@ export default function SettlementReportPage() {
         )}
       </div>
 
-      {/* TOTAL PENDAPATAN */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <div className="border rounded-lg p-4 bg-blue-50">
-          <div className="text-sm text-gray-600">
-            Total Pendapatan Partner (P)
-          </div>
-          <div className="text-2xl font-bold text-blue-700">
-            Rp {totalPartnerRevenue.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="border rounded-lg p-4 bg-green-50">
-          <div className="text-sm text-gray-600">
-            Total Pendapatan Supplier (S)
-          </div>
-          <div className="text-2xl font-bold text-green-700">
-            Rp {totalSupplierRevenue.toLocaleString()}
-          </div>
-        </div>
+      {/* TOTAL */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <SummaryBox label="Total Hak Partner (P)" value={totalPartnerRevenue} color="blue" />
+        <SummaryBox label="Total Hak Supplier (S)" value={totalSupplierRevenue} color="green" />
       </div>
 
-      <div className="mb-8 text-sm text-gray-500">
-        Gross Sales (P + S):{" "}
-        <span className="font-semibold">
-          Rp {grossSales.toLocaleString()}
-        </span>
+      <div className="mb-4 text-sm text-gray-500">
+        Gross Sales: <b>Rp {grossSales.toLocaleString()}</b>
       </div>
 
-      {/* SUMMARY */}
+      {/* ===== DETAIL HAK MASING-MASING (INI YANG HILANG) ===== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         <div className="border rounded-lg p-4 bg-gray-50">
           <h2 className="font-semibold mb-3">Partner (P)</h2>
@@ -165,7 +144,7 @@ export default function SettlementReportPage() {
           <Row label="Total Hak Supplier" value={supplier.revenue} />
           <Row label="Sudah Diterima" value={supplier.cash_received} green />
           <Row
-            label="Belum Diterima (Harus Dibayar P)"
+            label="Belum Diterima (Utang Partner)"
             value={supplier.cash_pending}
             red
             highlight
@@ -173,78 +152,230 @@ export default function SettlementReportPage() {
         </div>
       </div>
 
-      {/* DETAIL SUPPLIER */}
-      <div className="bg-white border rounded-lg shadow mb-6 overflow-hidden">
-        <h2 className="font-semibold p-4 border-b">
-          Rincian Utang Partner (P) ke Supplier (S)
+      {/* SUPPLIER PENDING */}
+      <SupplierPendingTable supplier={supplier} supplierPending={supplierPending} />
+
+      {/* DETAIL ITEM PARTNER */}
+      <div
+        className="flex items-center justify-between cursor-pointer select-none mb-2"
+        onClick={() => setShowPartnerItems((v) => !v)}
+      >
+        <h2 className="font-semibold text-sm text-blue-700">
+          Detail Item Partner (P)
         </h2>
 
-        <div className="p-4 text-xs text-gray-600 bg-gray-50 border-b">
-          Dana di bawah ini adalah <b>hak Supplier (S)</b> dari penjualan
-          non-online atau pembayaran yang tidak langsung masuk ke Supplier,
-          sehingga masih tertahan di Partner dan perlu ditransfer.
-        </div>
-
-        {Object.keys(supplierPending).length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">
-            Tidak ada kewajiban pembayaran ke Supplier
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="text-left p-2">Kode Supplier</th>
-                <th className="text-right p-2">Nominal yang Harus Dibayar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(supplierPending)
-                .filter(([code, amount]) => code === "S" && (amount ?? 0) > 0)
-                .map(([code, amount]) => (
-                  <tr key={code} className="border-t">
-                    <td className="p-2">{code}</td>
-                    <td className="p-2 text-right font-semibold text-red-600">
-                      Rp {amount.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-
-            <tfoot className="bg-gray-50 border-t">
-              <tr>
-                <td className="p-2 font-semibold">
-                  Total Utang Partner (P) ke Supplier (S)
-                </td>
-                <td className="p-2 text-right font-bold text-red-700">
-                  Rp {(supplier.cash_pending ?? 0).toLocaleString()}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        )}
+        <span className="text-xs text-gray-500">
+          {showPartnerItems ? "▲" : "▼"}
+        </span>
       </div>
+
+      {showPartnerItems && (
+        <ItemTable title={null} items={partnerItems} />
+      )}
+
+      {/* DETAIL ITEM SUPPLIER */}
+      <div
+        className="flex items-center justify-between cursor-pointer select-none mb-2 mt-4"
+        onClick={() => setShowSupplierItems((v) => !v)}
+      >
+        <h2 className="font-semibold text-sm text-green-700">
+          Detail Item Supplier (S)
+        </h2>
+
+        <span className="text-xs text-gray-500">
+          {showSupplierItems ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {showSupplierItems && (
+        <ItemTable title={null} items={supplierItems} />
+      )}
     </div>
   );
 }
 
 /* ===============================
-   ROW COMPONENT
+   COMPONENTS
 =============================== */
+function SummaryBox({ label, value, color }) {
+  return (
+    <div className={`border rounded-lg p-4 bg-${color}-50`}>
+      <div className="text-sm text-gray-600">{label}</div>
+      <div className={`text-2xl font-bold text-${color}-700`}>
+        Rp {value.toLocaleString()}
+      </div>
+    </div>
+  );
+}
+
 function Row({ label, value, green, red, highlight }) {
+  const colorClass = green
+    ? "text-green-600"
+    : red
+    ? "text-red-600"
+    : "text-gray-600";
+
   return (
     <div
       className={`flex justify-between mb-2 px-1 py-1 rounded ${
         highlight ? "bg-red-50" : ""
       }`}
     >
-      <span className="text-sm text-gray-600">{label}</span>
-      <span
-        className={`font-bold ${
-          green ? "text-green-600" : red ? "text-red-600" : ""
-        }`}
-      >
+      <span className={`text-sm font-medium ${colorClass}`}>
+        {label}
+      </span>
+      <span className={`font-bold ${colorClass}`}>
         Rp {(value ?? 0).toLocaleString()}
       </span>
     </div>
   );
 }
+
+function ItemTable({ title, items }) {
+  const sourceLabelMap = {
+    grabfood: {
+      label: "GrabFood",
+      cls: "bg-green-100 text-green-700",
+    },
+    shopeefood: {
+      label: "ShopeeFood",
+      cls: "bg-orange-100 text-orange-700",
+    },
+    gofood: {
+      label: "GoFood",
+      cls: "bg-emerald-100 text-emerald-700",
+    },
+  };
+
+  const total = items.reduce(
+    (sum, it) => sum + (it.subtotal ?? 0),
+    0
+  );
+
+  return (
+    <div className="bg-white border rounded-lg shadow mb-6 overflow-hidden">
+      {title && (
+        <h2 className="font-semibold p-4 border-b">{title}</h2>
+      )}
+
+      {items.length === 0 ? (
+        <div className="p-4 text-sm text-gray-500">
+          Tidak ada item
+        </div>
+      ) : (
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col className="w-[58%]" />
+            <col className="w-[15%]" />
+            <col className="w-[27%]" />
+          </colgroup>
+
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="text-left p-2">Item</th>
+              <th className="text-center p-2">Qty</th>
+              <th className="text-right p-2">Subtotal</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {items.map((it, idx) => {
+              const sourceInfo = sourceLabelMap[it.source];
+
+              return (
+                <tr key={idx} className="border-t align-top">
+                  {/* ITEM NAME + BADGE */}
+                  <td className="p-2">
+                    <div className="font-semibold leading-tight line-clamp-3">
+                      {it.menu_name}
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-2 text-[11px]">
+                      {sourceInfo ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-semibold ${sourceInfo.cls}`}
+                        >
+                          {sourceInfo.label}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">
+                          Offline
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* QTY */}
+                  <td className="p-2 text-center align-middle">
+                    {it.quantity}
+                  </td>
+
+                  {/* SUBTOTAL */}
+                  <td className="p-2 text-right align-middle font-semibold whitespace-nowrap">
+                    Rp {it.subtotal.toLocaleString()}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+
+          {/* TOTAL */}
+          <tfoot className="bg-gray-50 border-t">
+            <tr>
+              <td className="p-3 font-semibold">
+                Total
+              </td>
+              <td
+                colSpan={2}
+                className="p-3 text-right font-bold whitespace-nowrap"
+              >
+                Rp {total.toLocaleString()}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function SupplierPendingTable({ supplier, supplierPending }) {
+  return (
+    <div className="bg-white border rounded-lg shadow mb-6 overflow-hidden">
+      <h2 className="font-semibold p-4 border-b">
+        Rincian Utang Partner (P) ke Supplier (S)
+      </h2>
+
+      {/* PENJELASAN SINGKAT */}
+      <div className="p-3 text-sm text-gray-600 bg-gray-50 border-b">
+        Dana Supplier yang <b>masih tertahan di Partner</b> dan belum ditransfer.
+      </div>
+
+      {Object.keys(supplierPending).length === 0 ? (
+        <div className="p-4 text-sm text-gray-500">
+          Tidak ada kewajiban pembayaran ke Supplier.
+        </div>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            <tr className="bg-gray-50 border-t">
+              <td className="p-3 font-semibold">
+                Total Utang Partner ke Supplier
+              </td>
+              <td className="p-3 text-right font-bold text-red-700">
+                Rp {(supplier.cash_pending ?? 0).toLocaleString()}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+
+      {supplier.cash_pending > 0 && (
+        <div className="p-3 text-xs text-red-600 bg-red-50 border-t">
+          ⚠️ Perlu ditransfer ke Supplier (S).
+        </div>
+      )}
+    </div>
+  );
+}
+
