@@ -443,11 +443,20 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="border rounded divide-y mb-3">
+            <div className="border rounded divide-y mb-4 text-sm">
               {detail.items?.map((it) => (
-                <div key={it.menu_name} className="flex justify-between p-3">
-                  <span>{it.menu_name}</span>
-                  <span className="font-bold">{it.quantity}x</span>
+                <div key={it.menu_name} className="flex justify-between gap-3 p-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium line-clamp-2 leading-snug">
+                      {it.menu_name}
+                    </div>
+                    <div className="text-gray-500 text-xs">
+                      {it.quantity}x
+                    </div>
+                  </div>
+                  <div className="shrink-0 whitespace-nowrap font-semibold text-right">
+                    Rp {it.subtotal?.toLocaleString()} • {it.supplier_code}
+                  </div>
                 </div>
               ))}
             </div>

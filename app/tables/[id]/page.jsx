@@ -18,6 +18,9 @@ export default function TablePOSPage() {
 
   const [isSaving, setIsSaving] = useState(false);
 
+  // 🔑 supplier dropdown
+  const [openSupplierFor, setOpenSupplierFor] = useState(null);
+
   // ===============================
   // LOAD DATA
   // ===============================
@@ -30,8 +33,7 @@ export default function TablePOSPage() {
 
   async function loadTableInfo() {
     const tables = await fetch("/api/tables").then((r) => r.json());
-    const t = tables.find((x) => x.id === tableId);
-    setTableInfo(t);
+    setTableInfo(tables.find((x) => x.id === tableId));
   }
 
   async function loadMenu() {
@@ -41,13 +43,13 @@ export default function TablePOSPage() {
   async function loadCategories() {
     const data = await fetch("/api/category").then((r) => r.json());
     setCategories(data);
-    if (data.length > 0) setActiveCat(data[0].id);
+    if (data.length) setActiveCat(data[0].id);
   }
 
   async function loadDraft() {
-    const draftOrder = await fetch(`/api/orders/draft?table_id=${tableId}`).then((r) =>
-      r.json()
-    );
+    const draftOrder = await fetch(
+      `/api/orders/draft?table_id=${tableId}`
+    ).then((r) => r.json());
 
     if (!draftOrder?.id) return;
 
@@ -57,25 +59,23 @@ export default function TablePOSPage() {
       `/api/orders/items?order_id=${draftOrder.id}`
     ).then((r) => r.json());
 
-    const normalized = (itemsData || []).map((it) => ({
-      id: it.id ?? null,
-      order_id: draftOrder.id,
-      menu_id: it.menu_id,
-      menu_name: it.menu_name,
-      unit_price: it.unit_price,
-      quantity: it.quantity,
-      subtotal: it.subtotal,
-    }));
-
-    setItems(normalized);
+    setItems(
+      (itemsData || []).map((it) => ({
+        menu_id: it.menu_id,
+        menu_name: it.menu_name,
+        unit_price: it.unit_price,
+        quantity: it.quantity,
+        subtotal: it.subtotal,
+        supplier_code: it.supplier_code ?? "S",
+      }))
+    );
   }
 
   // ===============================
-  // CART (LOCAL ONLY)
+  // CART
   // ===============================
   function addToCart(menuItem) {
     const exist = items.find((i) => i.menu_id === menuItem.id);
-
     if (exist) {
       updateQty(menuItem.id, exist.quantity + 1);
       return;
@@ -84,13 +84,12 @@ export default function TablePOSPage() {
     setItems([
       ...items,
       {
-        id: null,
-        order_id: draft?.id ?? null,
         menu_id: menuItem.id,
         menu_name: menuItem.name,
         unit_price: menuItem.price,
         quantity: 1,
         subtotal: menuItem.price,
+        supplier_code: "S",
       },
     ]);
 
@@ -98,8 +97,8 @@ export default function TablePOSPage() {
   }
 
   function updateQty(menuId, qty) {
-    setItems((prev) =>
-      prev.map((it) =>
+    setItems((p) =>
+      p.map((it) =>
         it.menu_id === menuId
           ? { ...it, quantity: qty, subtotal: qty * it.unit_price }
           : it
@@ -107,62 +106,77 @@ export default function TablePOSPage() {
     );
   }
 
+  function updateSupplier(menuId, code) {
+    setItems((p) =>
+      p.map((it) =>
+        it.menu_id === menuId ? { ...it, supplier_code: code } : it
+      )
+    );
+  }
+
   function removeItem(menuId) {
     const removed = items.find((i) => i.menu_id === menuId);
-    setItems((prev) => prev.filter((it) => it.menu_id !== menuId));
+    setItems((p) => p.filter((it) => it.menu_id !== menuId));
     showToast(`${removed?.menu_name} dihapus`, "error");
   }
 
   const total = items.reduce((s, it) => s + (it.subtotal ?? 0), 0);
 
   // ===============================
-  // SAVE DRAFT — MANUAL ONLY
+  // SAVE DRAFT
   // ===============================
-  async function saveDraft() {
-    if (items.length === 0) {
-      showToast("Tidak ada item.", "error");
-      return;
+  async function saveDraft({ redirect = false } = {}) {
+    if (!items.length) {
+      showToast("Tidak ada item", "error");
+      return null;
     }
 
     setIsSaving(true);
 
-    const body = {
-      table_id: tableId,
-      order_id: draft?.id ?? null,
-      items,
-    };
-
     const res = await fetch("/api/orders/upsert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        table_id: tableId,
+        order_id: draft?.id ?? null,
+        order_type: "dine-in",
+        items,
+      }),
     });
 
     const data = await res.json();
     setIsSaving(false);
 
-    if (data?.order) {
-      setDraft(data.order);
-      showToast("Draft berhasil disimpan");
-    } else {
+    if (!data?.order) {
       showToast("Gagal menyimpan draft", "error");
+      return null;
     }
+
+    setDraft(data.order);
+    showToast("Draft tersimpan");
+
+    if (redirect) {
+      window.location.href = `/tables/${tableId}/checkout`;
+    }
+
+    return data.order;
   }
 
-  function goCheckout() {
-    if (!draft?.id) {
-      showToast("Simpan draft terlebih dahulu", "error");
+  async function goCheckout() {
+    if (items.length === 0) {
+      showToast("Tambahkan minimal 1 item", "error");
       return;
     }
-    window.location.href = `/tables/${tableId}/checkout`;
+
+    await saveDraft({ redirect: true });
   }
 
   // ===============================
-  // GROUP MENU BY CATEGORY
+  // GROUP MENU
   // ===============================
-  const grouped = categories.map((cat) => ({
-    ...cat,
-    items: menu.filter((m) => m.category_id === cat.id),
+  const grouped = categories.map((c) => ({
+    ...c,
+    items: menu.filter((m) => m.category_id === c.id),
   }));
 
   // ===============================
@@ -174,28 +188,23 @@ export default function TablePOSPage() {
         {tableInfo ? tableInfo.name : "Memuat meja..."}
       </h1>
 
-      <div className="text-sm text-gray-600 mb-4">
-        {draft ? "Melanjutkan draft pesanan" : "Pesanan baru"}
-      </div>
-
-      {/* CATEGORY TABS */}
-      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-        {categories.map((cat) => (
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {categories.map((c) => (
           <button
-            key={cat.id}
-            onClick={() => setActiveCat(cat.id)}
-            className={`px-2 rounded-full text-sm font-semibold border ${
-              activeCat === cat.id
-                ? "bg-black text-white border-black"
+            key={c.id}
+            onClick={() => setActiveCat(c.id)}
+            className={`px-4 rounded-full text-sm font-semibold border ${
+              activeCat === c.id
+                ? "bg-black text-white"
                 : "bg-white text-gray-700"
             }`}
           >
-            {cat.name}
+            {c.name}
           </button>
         ))}
       </div>
 
-      {/* MENU GRID */}
+      {/* MENU */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
         {grouped
           .find((g) => g.id === activeCat)
@@ -203,10 +212,9 @@ export default function TablePOSPage() {
             <div
               key={item.id}
               onClick={() => addToCart(item)}
-              className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md transition"
+              className="bg-white p-3 border rounded-lg shadow cursor-pointer"
             >
               <div className="font-semibold">{item.name}</div>
-              <div className="text-sm text-gray-500">{item.category_name}</div>
               <div className="font-bold mt-1">
                 Rp {item.price.toLocaleString()}
               </div>
@@ -217,15 +225,14 @@ export default function TablePOSPage() {
       {/* CART */}
       <h2 className="font-semibold text-lg mt-6 mb-2">Pesanan</h2>
 
-      {items.length === 0 ? (
-        <div className="text-gray-500">Belum ada item</div>
-      ) : (
-        <div className="space-y-3">
-          {items.map((it) => (
-            <div
-              key={it.menu_id}
-              className="bg-white p-3 border rounded-lg shadow flex justify-between"
-            >
+      <div className="space-y-3">
+        {items.map((it) => (
+          <div
+            key={it.menu_id}
+            className="bg-white p-3 border rounded-lg shadow"
+            onClick={() => setOpenSupplierFor(null)}
+          >
+            <div className="flex justify-between items-start">
               <div>
                 <div className="font-semibold">{it.menu_name}</div>
                 <div className="text-sm text-gray-600">
@@ -233,56 +240,94 @@ export default function TablePOSPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* SUPPLIER */}
+              <div className="relative">
                 <button
-                  className="px-2 py-1 bg-gray-200 rounded"
-                  onClick={() =>
-                    updateQty(it.menu_id, Math.max(1, it.quantity - 1))
-                  }
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenSupplierFor(
+                      openSupplierFor === it.menu_id ? null : it.menu_id
+                    );
+                  }}
+                  className="text-xs border rounded px-3 py-1 bg-white flex gap-1"
                 >
-                  -
+                  {it.supplier_code} ▾
                 </button>
 
-                <div>{it.quantity}</div>
-
-                <button
-                  className="px-2 py-1 bg-gray-200 rounded"
-                  onClick={() => updateQty(it.menu_id, it.quantity + 1)}
-                >
-                  +
-                </button>
-
-                <button
-                  className="ml-3 text-red-500"
-                  onClick={() => removeItem(it.menu_id)}
-                >
-                  Hapus
-                </button>
+                {openSupplierFor === it.menu_id && (
+                  <div
+                    className="absolute right-0 mt-1 w-20 bg-white border rounded shadow z-50"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {["S", "P"].map((code) => (
+                      <button
+                        key={code}
+                        onClick={() => {
+                          updateSupplier(it.menu_id, code);
+                          setOpenSupplierFor(null);
+                        }}
+                        className={`w-full px-3 py-2 text-xs text-left hover:bg-gray-100 ${
+                          it.supplier_code === code
+                            ? "font-semibold bg-gray-50"
+                            : ""
+                        }`}
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+
+            {/* QTY */}
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                className="px-2 py-1 bg-gray-200 rounded"
+                onClick={() =>
+                  updateQty(it.menu_id, Math.max(1, it.quantity - 1))
+                }
+              >
+                -
+              </button>
+
+              <div>{it.quantity}</div>
+
+              <button
+                className="px-2 py-1 bg-gray-200 rounded"
+                onClick={() => updateQty(it.menu_id, it.quantity + 1)}
+              >
+                +
+              </button>
+
+              <button
+                className="ml-auto text-red-500"
+                onClick={() => removeItem(it.menu_id)}
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {/* FOOTER */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex gap-3">
         <button
           onClick={saveDraft}
-          disabled={isSaving || items.length === 0}
-          className={`flex-1 py-3 rounded-lg font-semibold ${
-            items.length === 0
-              ? "bg-blue-300 text-white"
-              : "bg-blue-600 text-white"
-          }`}
+          disabled={isSaving}
+          className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold"
         >
           {isSaving ? "Menyimpan..." : "Save Draft"}
         </button>
 
         <button
           onClick={goCheckout}
-          disabled={!draft}
+          disabled={isSaving || items.length === 0}
           className={`flex-1 py-3 rounded-lg font-semibold ${
-            draft ? "bg-black text-white" : "bg-gray-300 text-gray-500"
+            items.length > 0
+              ? "bg-black text-white"
+              : "bg-gray-300 text-gray-500"
           }`}
         >
           Checkout

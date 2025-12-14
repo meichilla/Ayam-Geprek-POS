@@ -16,6 +16,5 @@ export async function GET(req) {
 
   if (error) return Response.json({ error }, { status: 500 });
 
-  // IMPORTANT → selalu kembalikan array
   return Response.json(data ?? []);
 }

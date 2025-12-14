@@ -23,7 +23,6 @@ export async function POST(req) {
     return Response.json({ error: error.message }, { status: 400 });
   }
 
-  // Public URL
   const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/iam-gondes/${fileName}`;
 
   return Response.json({ url });

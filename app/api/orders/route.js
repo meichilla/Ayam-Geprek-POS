@@ -27,7 +27,8 @@ export async function POST(req) {
     unit_price: i.price,
     quantity: i.qty,
     subtotal: i.qty * i.price,
-    item_type: i.item_type ?? "main"
+    item_type: i.item_type ?? "main",
+    supplier_code: i.supplier_code || "S"
   }));
 
   const { error: itemsError } = await supabase

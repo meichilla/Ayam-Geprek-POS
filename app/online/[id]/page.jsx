@@ -4,6 +4,22 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useToast } from "@/components/Toast";
 
+/* ===============================
+   HELPER PLATFORM CONFIG
+=============================== */
+function getPlatformConfig(source) {
+  switch (source) {
+    case "grabfood":
+      return { flag: "is_grabfood", priceKey: "price_grabfood" };
+    case "shopeefood":
+      return { flag: "is_shopeefood", priceKey: "price_shopeefood" };
+    case "gofood":
+      return { flag: "is_gofood", priceKey: "price_gofood" };
+    default:
+      return {};
+  }
+}
+
 export default function OnlineOrderDetailPage() {
   const { id } = useParams();
   const { showToast } = useToast();
@@ -19,9 +35,9 @@ export default function OnlineOrderDetailPage() {
 
   const [saving, setSaving] = useState(false);
 
-  // ===================================================
-  // LOAD ORDER
-  // ===================================================
+  /* ===================================================
+     LOAD ORDER
+  =================================================== */
   useEffect(() => {
     if (!id) return;
 
@@ -29,18 +45,27 @@ export default function OnlineOrderDetailPage() {
       .then((r) => r.json())
       .then((data) => {
         setOrder(data);
-        setItems(data.items || []);
+
+        const fixedItems = (data.items || []).map((it) => ({
+          ...it,
+          unit_price: Number(it.unit_price),
+          subtotal: Number(it.unit_price) * it.quantity,
+        }));
+
+        setItems(fixedItems);
         setCustomerName(data.customer_name || "");
       });
   }, [id]);
 
-  // ===================================================
-  // LOAD MENU + CATEGORY
-  // ===================================================
+  /* ===================================================
+     LOAD MENU + CATEGORY
+  =================================================== */
   useEffect(() => {
     fetch("/api/menu")
       .then((r) => r.json())
-      .then(setMenu);
+      .then((data) => {
+        setMenu(data);
+      });
 
     fetch("/api/category")
       .then((r) => r.json())
@@ -52,12 +77,14 @@ export default function OnlineOrderDetailPage() {
 
   if (!order) return <div className="p-4">Memuat...</div>;
 
-  // ===================================================
-  // CART LOGIC
-  // ===================================================
-  function addToCart(menuItem) {
-    const exist = items.find((i) => i.menu_id === menuItem.id);
+  const { flag, priceKey } = getPlatformConfig(order.source);
 
+  /* ===================================================
+     CART LOGIC (PLATFORM PRICE)
+  =================================================== */
+  function addToCart(menuItem) {
+    const price = Number(menuItem[priceKey]);
+    const exist = items.find((i) => i.menu_id === menuItem.id);
     if (exist) {
       updateQty(menuItem.id, exist.quantity + 1);
       return;
@@ -68,9 +95,10 @@ export default function OnlineOrderDetailPage() {
       {
         menu_id: menuItem.id,
         menu_name: menuItem.name,
-        unit_price: menuItem.price,
+        unit_price: price,
         quantity: 1,
-        subtotal: menuItem.price,
+        subtotal: price,
+        supplier_code: 'S',
       },
     ]);
   }
@@ -79,7 +107,11 @@ export default function OnlineOrderDetailPage() {
     setItems((prev) =>
       prev.map((it) =>
         it.menu_id === menuId
-          ? { ...it, quantity: qty, subtotal: qty * it.unit_price }
+          ? {
+              ...it,
+              quantity: qty,
+              subtotal: qty * it.unit_price,
+            }
           : it
       )
     );
@@ -91,9 +123,9 @@ export default function OnlineOrderDetailPage() {
 
   const total = items.reduce((s, it) => s + it.subtotal, 0);
 
-  // ===================================================
-  // SAVE DRAFT
-  // ===================================================
+  /* ===================================================
+     SAVE DRAFT
+  =================================================== */
   async function saveDraft(silent = false) {
     setSaving(true);
 
@@ -122,17 +154,16 @@ export default function OnlineOrderDetailPage() {
       setOrder(data.order);
       if (!silent) showToast("Draft tersimpan", "success");
       return true;
-    } catch (err) {
-      console.error(err);
+    } catch {
       setSaving(false);
       showToast("Terjadi kesalahan", "error");
       return false;
     }
   }
 
-  // ===================================================
-  // CHECKOUT (SAVE FIRST!)
-  // ===================================================
+  /* ===================================================
+     CHECKOUT
+  =================================================== */
   async function handleCheckout() {
     if (saving) return;
 
@@ -142,17 +173,24 @@ export default function OnlineOrderDetailPage() {
     window.location.href = `/online/checkout/${order.id}`;
   }
 
-  // ===================================================
-  // GROUP MENU
-  // ===================================================
-  const grouped = categories.map((cat) => ({
-    ...cat,
-    items: menu.filter((m) => m.category_id === cat.id),
-  }));
+  /* ===================================================
+     GROUP MENU (PLATFORM BASED)
+  =================================================== */
+  const grouped = categories
+    .map((cat) => ({
+      ...cat,
+      items: menu.filter(
+        (m) =>
+          m.category_id === cat.id &&
+          m[flag] === true &&
+          Number(m[priceKey]) > 0
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
 
-  // ===================================================
-  // RENDER
-  // ===================================================
+  /* ===================================================
+     RENDER
+  =================================================== */
   return (
     <div className="p-4 pb-28 max-w-3xl mx-auto">
       <h1 className="text-xl font-bold mb-2">
@@ -183,38 +221,48 @@ export default function OnlineOrderDetailPage() {
       {/* MENU */}
       <h2 className="font-semibold text-lg mt-4">Menu</h2>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mt-2 no-scrollbar">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCat(cat.id)}
-            className={`px-4 py-1.5 rounded-full text-sm font-semibold border ${
-              activeCat === cat.id
-                ? "bg-black text-white"
-                : "bg-white"
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
+      {grouped.length === 0 ? (
+        <div className="mt-4 text-gray-500 text-sm">
+          Tidak ada menu untuk platform ini
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2 overflow-x-auto pb-2 mt-2">
+            {grouped.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCat(cat.id)}
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold border ${
+                  activeCat === cat.id
+                    ? "bg-black text-white"
+                    : "bg-white"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-3">
-        {grouped
-          .find((g) => g.id === activeCat)
-          ?.items.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => addToCart(item)}
-              className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md"
-            >
-              <div className="font-semibold">{item.name}</div>
-              <div className="font-bold mt-1">
-                Rp {item.price.toLocaleString()}
-              </div>
-            </div>
-          ))}
-      </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-3">
+            {grouped
+              .find((g) => g.id === activeCat)
+              ?.items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => addToCart(item)}
+                  className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md"
+                >
+                  <div className="font-semibold line-clamp-2">
+                    {item.name}
+                  </div>
+                  <div className="font-bold mt-1">
+                    Rp {Number(item[priceKey]).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </>
+      )}
 
       {/* CART */}
       <h2 className="font-semibold text-lg mt-6 mb-2">Pesanan</h2>

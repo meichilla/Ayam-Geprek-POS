@@ -56,6 +56,7 @@ export async function POST(req) {
         menu_name: it.menu_name,
         quantity: it.quantity,
         subtotal: it.subtotal,
+        supplier_code: "S",
       }));
 
       const { error: itemErr } = await supabase

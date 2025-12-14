@@ -8,7 +8,6 @@ export async function PUT(request, context) {
   const { params } = context;
   const { table_number, name, is_active } = await request.json();
 
-  // ambil id
   let id = params?.id;
   if (!id) {
     const url = new URL(request.url);
@@ -29,7 +28,6 @@ export async function PUT(request, context) {
     );
   }
 
-  // Cegah duplicate meja aktif
   if (is_active === true) {
     const { data: conflict } = await supabase
       .from("tables")

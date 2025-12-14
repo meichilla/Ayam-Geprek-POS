@@ -26,6 +26,7 @@ export default function Navbar({ onLock }) {
     "/takeaway",
     "/master",
     "/dashboard",
+    "/report",
     "/online",
     "/login",
     "/settings",
@@ -35,16 +36,10 @@ export default function Navbar({ onLock }) {
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 
-  /* ===============================
-     CLOSE MOBILE MENU ON ROUTE CHANGE
-  =============================== */
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
-  /* ===============================
-     PIN STATE (LOCAL STORAGE)
-  =============================== */
   useEffect(() => {
     const syncPin = () => setPinEnabled(isPinEnabled());
     syncPin();
@@ -53,21 +48,16 @@ export default function Navbar({ onLock }) {
     return () => window.removeEventListener("storage", syncPin);
   }, []);
 
-  /* ===============================
-     AUTH STATE (UI ONLY, GUARDED)
-  =============================== */
   useEffect(() => {
-    // initial check
     supabase.auth.getSession().then(({ data }) => {
       if (!isLoggingOut.current) {
         setLoggedIn(!!data.session);
       }
     });
 
-    // listen auth change
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (isLoggingOut.current) return; // 🔥 block event saat logout
+        if (isLoggingOut.current) return;
         setLoggedIn(!!session);
       }
     );
@@ -77,23 +67,16 @@ export default function Navbar({ onLock }) {
     };
   }, []);
 
-  /* ===============================
-     ACTIONS
-  =============================== */
   const handleLogout = async () => {
-    // 🔥 kunci state supaya navbar tidak muncul lagi
     isLoggingOut.current = true;
     setLoggedIn(false);
 
-    // clear local security data
     localStorage.clear();
 
     try {
-      // logout lokal saja (hindari session_not_found noise)
       await supabase.auth.signOut({ scope: "local" });
     } catch {}
 
-    // 🔥 HARD REDIRECT (WAJIB)
     window.location.href = "/login";
   };
 
@@ -102,16 +85,14 @@ export default function Navbar({ onLock }) {
   };
 
   const linkClass = (path) =>
-    pathname === path ? "font-semibold underline" : "";
+    pathname === path || pathname.startsWith(path + "/")
+      ? "font-semibold underline"
+      : "";
 
   /* ===============================
-     HIDE NAVBAR RULES (FINAL)
+     HIDE NAVBAR RULES
   =============================== */
-
-  // 🔥 NAVBAR TIDAK PERNAH BOLEH MUNCUL DI HALAMAN LOGIN
   if (pathname.startsWith("/login")) return null;
-
-  // 🔐 HIDE JIKA BELUM LOGIN
   if (!loggedIn) return null;
 
   /* ===============================
@@ -144,6 +125,7 @@ export default function Navbar({ onLock }) {
           <Link href="/online" className={linkClass("/online")}>Online Orders</Link>
           <Link href="/master" className={linkClass("/master")}>Master</Link>
           <Link href="/dashboard" className={linkClass("/dashboard")}>Dashboard</Link>
+          <Link href="/report" className={linkClass("/report")}>Report</Link>
           <Link href="/settings" className={linkClass("/settings")}>Settings</Link>
 
           {pinEnabled && (
@@ -181,6 +163,7 @@ export default function Navbar({ onLock }) {
             <Link href="/online">Online Orders</Link>
             <Link href="/master">Master</Link>
             <Link href="/dashboard">Dashboard</Link>
+            <Link href="/report">Report</Link>
             <Link href="/settings">Settings</Link>
 
             {pinEnabled && (

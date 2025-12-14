@@ -34,7 +34,7 @@ export async function GET(req) {
   // =============================
   const { data: items, error: itemErr } = await supabase
     .from("order_items")
-    .select("menu_name, quantity, subtotal")
+    .select("menu_name, quantity, subtotal, supplier_code")
     .eq("order_id", id);
 
   if (itemErr) {

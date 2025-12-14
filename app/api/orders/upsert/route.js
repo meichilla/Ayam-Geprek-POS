@@ -1,15 +1,23 @@
-import { supabaseServer } from "@/lib/supabaseServer";;
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function POST(req) {
   const supabase = supabaseServer();
   const body = await req.json();
-  const { table_id, order_id, items, order_type = "dine-in", customer_name, source } = body;
+
+  const {
+    table_id,
+    order_id,
+    items = [],
+    order_type = "dine-in",
+    customer_name,
+    source,
+  } = body;
 
   const total = items.reduce((s, it) => s + (it.subtotal || 0), 0);
 
-  // =============================
+  // =====================================================
   // 1. CREATE ORDER BARU
-  // =============================
+  // =====================================================
   if (!order_id) {
     const { data: newOrder, error: orderErr } = await supabase
       .from("orders")
@@ -19,14 +27,16 @@ export async function POST(req) {
         status: "draft",
         total_price: total,
         customer_name: customer_name || null,
-        source
+        source,
       })
       .select()
       .single();
 
-    if (orderErr) return Response.json({ error: orderErr }, { status: 500 });
+    if (orderErr) {
+      return Response.json({ error: orderErr }, { status: 500 });
+    }
 
-    const formatted = items.map((it) => ({
+    const orderItems = items.map((it) => ({
       order_id: newOrder.id,
       menu_id: it.menu_id,
       menu_name: it.menu_name,
@@ -34,37 +44,42 @@ export async function POST(req) {
       quantity: it.quantity,
       subtotal: it.subtotal,
       item_type: "main",
+      supplier_code: it.supplier_code || "S",
     }));
 
     const { error: itemErr } = await supabase
       .from("order_items")
-      .insert(formatted);
+      .insert(orderItems);
 
-    if (itemErr) return Response.json({ error: itemErr }, { status: 500 });
+    if (itemErr) {
+      return Response.json({ error: itemErr }, { status: 500 });
+    }
 
     return Response.json({ order: newOrder });
   }
 
-  // =============================
+  // =====================================================
   // 2. UPDATE ORDER EXISTING
-  // =============================
+  // =====================================================
   const { data: updatedOrder, error: updErr } = await supabase
     .from("orders")
     .update({
       total_price: total,
       table_id: order_type === "dine-in" ? table_id : null,
       customer_name: customer_name || null,
-      source
+      source,
     })
     .eq("id", order_id)
     .select()
     .single();
 
-  if (updErr) return Response.json({ error: updErr }, { status: 500 });
+  if (updErr) {
+    return Response.json({ error: updErr }, { status: 500 });
+  }
 
-  // =============================
-  // 3. DELETE ITEM YANG HILANG
-  // =============================
+  // =====================================================
+  // 3. DELETE ITEM YANG SUDAH DIHAPUS DI UI
+  // =====================================================
   const { data: existingItems } = await supabase
     .from("order_items")
     .select("menu_id")
@@ -83,19 +98,28 @@ export async function POST(req) {
       .in("menu_id", toDelete);
   }
 
-  // =============================
-  // 4. UPSERT SEMUA ITEM
-  // =============================
-  for (const it of items) {
-    await supabase.from("order_items").upsert({
-      order_id,
-      menu_id: it.menu_id,
-      menu_name: it.menu_name,
-      unit_price: it.unit_price,
-      quantity: it.quantity,
-      subtotal: it.subtotal,
-      item_type: "main",
+  // =====================================================
+  // 4. BULK UPSERT ITEM
+  // =====================================================
+  const upsertPayload = items.map((it) => ({
+    order_id,
+    menu_id: it.menu_id,
+    menu_name: it.menu_name,
+    unit_price: it.unit_price,
+    quantity: it.quantity,
+    subtotal: it.subtotal,
+    item_type: "main",
+    supplier_code: it.supplier_code || "S",
+  }));
+
+  const { error: upsertErr } = await supabase
+    .from("order_items")
+    .upsert(upsertPayload, {
+      onConflict: "order_id,menu_id",
     });
+
+  if (upsertErr) {
+    return Response.json({ error: upsertErr }, { status: 500 });
   }
 
   return Response.json({ order: updatedOrder });

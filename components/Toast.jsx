@@ -4,12 +4,10 @@ import { createContext, useContext, useState, useCallback } from "react";
 
 const ToastContext = createContext();
 
-// HOOK
 export function useToast() {
   return useContext(ToastContext);
 }
 
-// PROVIDER
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 

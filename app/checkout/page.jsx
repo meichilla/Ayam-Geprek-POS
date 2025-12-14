@@ -21,7 +21,6 @@ export default function CheckoutPage() {
     localStorage.setItem("cart", JSON.stringify(cart));
   }, [cart]);
 
-  // Update qty
   const updateQty = (id, type) => {
     setCart((prev) =>
       prev

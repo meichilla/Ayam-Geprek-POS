@@ -11,6 +11,7 @@ export default function TakeAwayNewPage() {
   const [draft, setDraft] = useState(null);
   const [items, setItems] = useState([]);
   const [customerName, setCustomerName] = useState("");
+  const [openSupplierFor, setOpenSupplierFor] = useState(null);
 
   const { showToast } = useToast();
 
@@ -18,15 +19,12 @@ export default function TakeAwayNewPage() {
   // LOAD MENU + CATEGORY
   // =======================================================
   useEffect(() => {
-    fetch("/api/menu")
-      .then((res) => res.json())
-      .then(setMenu);
-
+    fetch("/api/menu").then((r) => r.json()).then(setMenu);
     fetch("/api/category")
-      .then((res) => res.json())
-      .then((data) => {
-        setCategories(data);
-        if (data.length > 0) setActiveCat(data[0].id);
+      .then((r) => r.json())
+      .then((d) => {
+        setCategories(d);
+        if (d.length) setActiveCat(d[0].id);
       });
   }, []);
 
@@ -35,27 +33,27 @@ export default function TakeAwayNewPage() {
   // =======================================================
   function addToCart(menuItem) {
     const exist = items.find((i) => i.menu_id === menuItem.id);
-
     if (exist) {
       updateQty(menuItem.id, exist.quantity + 1);
       return;
     }
 
-    setItems((prev) => [
-      ...prev,
+    setItems((p) => [
+      ...p,
       {
         menu_id: menuItem.id,
         menu_name: menuItem.name,
         unit_price: menuItem.price,
         quantity: 1,
         subtotal: menuItem.price,
+        supplier_code: "S",
       },
     ]);
   }
 
   function updateQty(menuId, qty) {
-    setItems((prev) =>
-      prev.map((it) =>
+    setItems((p) =>
+      p.map((it) =>
         it.menu_id === menuId
           ? { ...it, quantity: qty, subtotal: qty * it.unit_price }
           : it
@@ -63,82 +61,75 @@ export default function TakeAwayNewPage() {
     );
   }
 
-  function removeItem(menuId) {
-    setItems((prev) => prev.filter((it) => it.menu_id !== menuId));
+  function updateSupplier(menuId, code) {
+    setItems((p) =>
+      p.map((it) =>
+        it.menu_id === menuId ? { ...it, supplier_code: code } : it
+      )
+    );
   }
 
-  const total = items.reduce((s, it) => s + (it.subtotal ?? 0), 0);
+  function removeItem(menuId) {
+    setItems((p) => p.filter((it) => it.menu_id !== menuId));
+  }
 
   // =======================================================
-  // SAVE DRAFT (REUSABLE)
+  // SAVE DRAFT
   // =======================================================
   async function saveDraft({ silent = false } = {}) {
-    if (items.length === 0) {
+    if (!items.length) {
       if (!silent) showToast("Tambahkan item terlebih dahulu", "error");
       return null;
     }
 
-    const body = {
-      order_type: "takeaway",
-      source: "takeaway",
-      order_id: draft?.id ?? null,
-      customer_name: customerName,
-      items,
-    };
-
     const res = await fetch("/api/orders/upsert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        order_type: "takeaway",
+        source: "takeaway",
+        order_id: draft?.id ?? null,
+        customer_name: customerName,
+        items,
+      }),
     });
 
     const data = await res.json();
-
     if (!res.ok || !data?.order) {
       if (!silent) showToast("Gagal menyimpan draft", "error");
       return null;
     }
 
     setDraft(data.order);
-
-    if (!silent) {
-      showToast("Draft berhasil disimpan!", "success");
-    }
-
+    if (!silent) showToast("Draft berhasil disimpan!", "success");
     return data.order.id;
   }
 
   // =======================================================
-  // CHECKOUT (AUTO SAVE DRAFT)
+  // CHECKOUT
   // =======================================================
   async function goCheckout() {
-    if (items.length === 0) {
+    if (!items.length) {
       showToast("Tambahkan item terlebih dahulu", "error");
       return;
     }
 
     let orderId = draft?.id;
-
-    // 🔥 AUTO SAVE DRAFT JIKA BELUM ADA
     if (!orderId) {
       showToast("Menyimpan draft...", "info");
       orderId = await saveDraft({ silent: true });
-
-      if (!orderId) {
-        showToast("Gagal menyimpan draft", "error");
-        return;
-      }
+      if (!orderId) return;
     }
 
     window.location.href = `/takeaway/checkout/${orderId}`;
   }
 
   // =======================================================
-  // GROUP MENU BY CATEGORY
+  // GROUP MENU
   // =======================================================
-  const grouped = categories.map((cat) => ({
-    ...cat,
-    items: menu.filter((m) => m.category_id === cat.id),
+  const grouped = categories.map((c) => ({
+    ...c,
+    items: menu.filter((m) => m.category_id === c.id),
   }));
 
   // =======================================================
@@ -149,18 +140,15 @@ export default function TakeAwayNewPage() {
       <h1 className="text-xl font-bold mb-3">Take Away Baru</h1>
 
       <div className="text-sm text-gray-600 mb-4">
-        {!draft
-          ? "Draft belum disimpan"
-          : `Draft #${draft.id.slice(0, 6)} tersimpan`}
+        {!draft ? "Draft belum disimpan" : `Draft #${draft.id.slice(0, 6)}`}
       </div>
 
-      {/* CUSTOMER NAME */}
+      {/* CUSTOMER */}
       <div className="mb-4">
-        <label className="block text-sm mb-1 font-semibold">
+        <label className="text-sm font-semibold block mb-1">
           Nama Customer
         </label>
         <input
-          type="text"
           className="border p-2 rounded w-full"
           placeholder="Masukkan nama customer (opsional)"
           value={customerName}
@@ -168,26 +156,24 @@ export default function TakeAwayNewPage() {
         />
       </div>
 
-      {/* CATEGORY TABS */}
-      <h2 className="font-semibold text-lg mt-4">Menu</h2>
-
-      <div className="flex gap-2 overflow-x-auto pb-2 mt-2 no-scrollbar">
-        {categories.map((cat) => (
+      {/* CATEGORY */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {categories.map((c) => (
           <button
-            key={cat.id}
-            onClick={() => setActiveCat(cat.id)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold border ${
-              activeCat === cat.id
-                ? "bg-black text-white border-black"
+            key={c.id}
+            onClick={() => setActiveCat(c.id)}
+            className={`px-4 rounded-full text-sm font-semibold border ${
+              activeCat === c.id
+                ? "bg-black text-white"
                 : "bg-white text-gray-700"
             }`}
           >
-            {cat.name}
+            {c.name}
           </button>
         ))}
       </div>
 
-      {/* MENU GRID */}
+      {/* MENU */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
         {grouped
           .find((g) => g.id === activeCat)
@@ -195,12 +181,10 @@ export default function TakeAwayNewPage() {
             <div
               key={item.id}
               onClick={() => addToCart(item)}
-              className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md transition"
+              className="bg-white p-3 border rounded-lg shadow cursor-pointer hover:shadow-md"
             >
               <div className="font-semibold">{item.name}</div>
-              <div className="text-sm text-gray-500">
-                {item.category_name}
-              </div>
+              <div className="text-sm text-gray-500">{item.category_name}</div>
               <div className="font-bold mt-1">
                 Rp {item.price.toLocaleString()}
               </div>
@@ -211,23 +195,70 @@ export default function TakeAwayNewPage() {
       {/* CART */}
       <h2 className="font-semibold text-lg mt-6 mb-2">Pesanan</h2>
 
-      {items.length === 0 ? (
+      {!items.length ? (
         <div className="text-gray-500">Belum ada item</div>
       ) : (
         <div className="space-y-3">
           {items.map((it) => (
             <div
               key={it.menu_id}
-              className="bg-white p-3 border rounded-lg shadow flex justify-between"
+              className="bg-white p-3 border rounded-lg shadow"
+              onClick={() => setOpenSupplierFor(null)} // close if click card
             >
-              <div>
-                <div className="font-semibold">{it.menu_name}</div>
-                <div className="text-sm text-gray-600">
-                  Rp {it.unit_price.toLocaleString()}
+              {/* HEADER */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="font-semibold">{it.menu_name}</div>
+                  <div className="text-sm text-gray-600">
+                    Rp {it.unit_price.toLocaleString()}
+                  </div>
+                </div>
+
+                {/* SUPPLIER DROPDOWN */}
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenSupplierFor(
+                        openSupplierFor === it.menu_id
+                          ? null
+                          : it.menu_id
+                      );
+                    }}
+                    className="text-xs border rounded px-3 py-1 bg-white flex items-center gap-1"
+                  >
+                    {it.supplier_code}
+                    <span className="text-gray-500">▾</span>
+                  </button>
+
+                  {openSupplierFor === it.menu_id && (
+                    <div
+                      className="absolute right-0 mt-1 w-20 bg-white border rounded shadow z-50"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {["S", "P"].map((code) => (
+                        <button
+                          key={code}
+                          onClick={() => {
+                            updateSupplier(it.menu_id, code);
+                            setOpenSupplierFor(null);
+                          }}
+                          className={`w-full px-3 py-2 text-xs text-left hover:bg-gray-100 ${
+                            it.supplier_code === code
+                              ? "font-semibold bg-gray-50"
+                              : ""
+                          }`}
+                        >
+                          {code}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* QTY */}
+              <div className="flex items-center gap-2 mt-2">
                 <button
                   className="px-2 py-1 bg-gray-200 rounded"
                   onClick={() =>
@@ -247,7 +278,7 @@ export default function TakeAwayNewPage() {
                 </button>
 
                 <button
-                  className="ml-3 text-red-500"
+                  className="ml-auto text-red-500"
                   onClick={() => removeItem(it.menu_id)}
                 >
                   Hapus
@@ -259,17 +290,16 @@ export default function TakeAwayNewPage() {
       )}
 
       {/* FOOTER */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex gap-3">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow p-4 flex gap-3">
         <button
           onClick={() => saveDraft()}
-          className="flex-1 py-3 rounded-lg bg-blue-600 text-white font-semibold"
+          className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-semibold"
         >
           Save Draft
         </button>
-
         <button
           onClick={goCheckout}
-          className="flex-1 py-3 rounded-lg bg-black text-white font-semibold"
+          className="flex-1 py-3 bg-black text-white rounded-lg font-semibold"
         >
           Checkout
         </button>

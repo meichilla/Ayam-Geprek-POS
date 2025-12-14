@@ -14,6 +14,11 @@ export default function TakeAwayPage() {
     loadOrders();
   }, []);
 
+  const statusPriority = {
+    draft: 0,
+    paid: 1,
+  };
+
   async function loadOrders() {
     const data = await fetch("/api/orders/all?order_type=takeaway").then((r) =>
       r.json()
@@ -139,7 +144,17 @@ export default function TakeAwayPage() {
               </div>
 
               <div className="space-y-2">
-                {grouped[dateKey]?.map((o) => {
+                {grouped[dateKey]
+                  ?.slice()
+                  .sort((a, b) => {
+                    const pa = statusPriority[a.status] ?? 99;
+                    const pb = statusPriority[b.status] ?? 99;
+
+                    if (pa !== pb) return pa - pb;
+
+                    return new Date(b.created_at) - new Date(a.created_at);
+                  })
+                  .map((o) => {
                   const timeString = new Date(o.created_at).toLocaleString(
                     "id-ID",
                     {
@@ -151,8 +166,7 @@ export default function TakeAwayPage() {
                   return (
                     <div
                       key={o.id}
-                      onClick={() =>
-                        (window.location.href = `/takeaway/${o.id}`)
+                      onClick={() => o.status === "draft" ? (window.location.href = `/takeaway/${o.id}`):(window.location.href = `/receipt/${o.id}`)
                       }
                       className={`bg-white border rounded p-3 shadow-sm text-sm flex justify-between items-center cursor-pointer hover:bg-gray-50 transition ${borderColor(
                         o.status

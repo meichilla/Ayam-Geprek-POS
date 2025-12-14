@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useToast } from "@/components/Toast"; // ⬅️ IMPORT TOAST
+import { useToast } from "@/components/Toast";
 
 export default function OnlineCheckoutPage() {
   const { id } = useParams();
-  const { showToast } = useToast(); // ⬅️ HOOK
+  const { showToast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 

@@ -78,16 +78,20 @@ export default function ReceiptPage() {
         <hr className="my-3 border-gray-300" />
 
         {/* ITEMS */}
-        <div className="mb-4 text-sm">
-          {data.items.map((it) => (
-            <div key={it.menu_name} className="flex justify-between py-2">
-              <div>
-                <span className="font-medium">{it.menu_name}</span>
-                <span className="text-gray-500 text-xs"> • {it.quantity}x</span>
+        <div className="text-sm">
+          {data.items?.map((it) => (
+            <div key={it.menu_name} className="flex justify-between gap-3 py-0.5">
+              <div className="min-w-0 flex-1">
+                <div className="font-medium line-clamp-2 leading-snug">
+                  {it.menu_name}
+                </div>
+                <div className="text-gray-500 text-xs">
+                  {it.quantity}x
+                </div>
               </div>
-              <span className="font-semibold">
-                Rp {it.subtotal?.toLocaleString()}
-              </span>
+              <div className="shrink-0 whitespace-nowrap font-semibold text-right">
+                Rp {it.subtotal?.toLocaleString()} • {it.supplier_code}
+              </div>
             </div>
           ))}
         </div>
