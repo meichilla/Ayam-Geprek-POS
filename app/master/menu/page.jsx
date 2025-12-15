@@ -305,6 +305,9 @@ export default function MenuMaster() {
                           setDraftForm({
                             ...item,
                             price: String(item.price),
+                            price_gofood: String(item.price_gofood || ""),
+                            price_grabfood: String(item.price_grabfood || ""),
+                            price_shopeefood: String(item.price_shopeefood || ""),
                           });
                           setShowEdit(true);
                         }}

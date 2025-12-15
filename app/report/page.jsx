@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 
 export default function SettlementReportPage() {
   const [data, setData] = useState(null);
@@ -11,6 +11,7 @@ export default function SettlementReportPage() {
   const [error, setError] = useState(null);
   const [showPartnerItems, setShowPartnerItems] = useState(false);
   const [showSupplierItems, setShowSupplierItems] = useState(false);
+  const [menuSearch, setMenuSearch] = useState("");
 
   const supplierPending = data?.supplierPending ?? {};
   const detailItems = data?.detail_items ?? [];
@@ -68,6 +69,41 @@ export default function SettlementReportPage() {
 
   const partnerItems = detailItems.filter((i) => i.supplier_code === "P");
   const supplierItems = detailItems.filter((i) => i.supplier_code === "S");
+  const categoryMenuSummary = {};
+
+  detailItems.forEach((it) => {
+    const category = it.category_name ?? "Uncategorized";
+    const menuKey = it.menu_name;
+
+    if (!categoryMenuSummary[category]) {
+      categoryMenuSummary[category] = {};
+    }
+
+    if (!categoryMenuSummary[category][menuKey]) {
+      categoryMenuSummary[category][menuKey] = {
+        name: it.menu_name,
+        P: { qty: 0, total: 0 },
+        S: { qty: 0, total: 0 },
+      };
+    }
+
+    if (it.supplier_code === "P" || it.supplier_code === "S") {
+      categoryMenuSummary[category][menuKey][it.supplier_code].qty +=
+        it.quantity ?? 0;
+
+      categoryMenuSummary[category][menuKey][it.supplier_code].total +=
+        it.subtotal ?? 0;
+    }
+  });
+
+  const categoryMenuList = Object.entries(categoryMenuSummary).map(
+    ([category, menus]) => ({
+      category,
+      menus: Object.values(menus).filter((m) =>
+        m.name.toLowerCase().includes(menuSearch.toLowerCase())
+      ),
+    })
+  ).filter((cat) => cat.menus.length > 0);
 
   return (
     <div className="p-4 max-w-5xl mx-auto">
@@ -154,6 +190,84 @@ export default function SettlementReportPage() {
 
       {/* SUPPLIER PENDING */}
       <SupplierPendingTable supplier={supplier} supplierPending={supplierPending} />
+
+      {/* ============================================================
+            REKAP TOTAL ITEM (P vs S) — FINAL TABLE (WITH QTY)
+        ============================================================ */}
+        <div className="bg-white border rounded-lg shadow mb-6 overflow-hidden">
+          {/* HEADER */}
+          <div className="px-4 py-2 border-b flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-sm">
+              Rekap Total Item
+            </h2>
+
+            <input
+              type="text"
+              placeholder="Cari menu…"
+              value={menuSearch}
+              onChange={(e) => setMenuSearch(e.target.value)}
+              className="border rounded px-2 py-1 text-xs w-44"
+            />
+          </div>
+
+          {categoryMenuList.length === 0 ? (
+            <div className="p-3 text-xs text-gray-500">
+              Tidak ada data
+            </div>
+          ) : (
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-blue-100">
+                <tr>
+                  <th className="text-left px-4 py-2 font-semibold">
+                    Menu
+                  </th>
+                  <th className="text-right px-3 py-2 font-semibold">
+                    P
+                  </th>
+                  <th className="text-right px-3 py-2 font-semibold">
+                    S
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {categoryMenuList.map((cat) => (
+                  <Fragment key={cat.category}>
+                    {/* CATEGORY ROW */}
+                    <tr className="bg-blue-50 border-t">
+                      <td
+                        colSpan={5}
+                        className="px-4 py-1.5 font-bold uppercase tracking-wide text-[11px] text-blue-700"
+                      >
+                        {cat.category}
+                      </td>
+                    </tr>
+
+                    {/* MENU ROWS */}
+                    {cat.menus.map((it) => (
+                      <tr key={it.name} className="border-t">
+                        <td
+                          className="px-4 py-1.5 text-sm truncate"
+                          title={it.name}
+                        >
+                          {it.name}
+                        </td>
+                        {/* P QTY */}
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {it.P.qty}
+                        </td>
+                        {/* S QTY */}
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {it.S.qty}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
       {/* DETAIL ITEM PARTNER */}
       <div
@@ -244,6 +358,14 @@ function ItemTable({ title, items }) {
     gofood: {
       label: "GoFood",
       cls: "bg-emerald-100 text-emerald-700",
+    },
+    takeaway: {
+      label: "Take Away",
+      cls: "bg-gray-100 text-gray-700",
+    },
+    "dine-in": {
+      label: "Dine In",
+      cls: "bg-blue-100 text-blue-700",
     },
   };
 
