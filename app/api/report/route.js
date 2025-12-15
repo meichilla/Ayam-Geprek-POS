@@ -54,10 +54,17 @@ export async function GET(req) {
         supplier_share,
         partner_share,
         order_items (
+          menu_id,
           menu_name,
           quantity,
           subtotal,
-          supplier_code
+          supplier_code,
+          menu:menu_id (
+            category_id,
+            categories:category_id (
+              name
+            )
+          )
         )
       `)
       .in("status", ["paid", "completed"])
@@ -109,8 +116,13 @@ export async function GET(req) {
       }
 
       (o.order_items || []).forEach((it) => {
+        const categoryName =
+          it.menu?.categories?.name ?? "Uncategorized";
+
         detail_items.push({
+          menu_id: it.menu_id,
           menu_name: it.menu_name,
+          category_name: categoryName,
           quantity: it.quantity,
           subtotal: it.subtotal,
           supplier_code: it.supplier_code ?? "UNKNOWN",
