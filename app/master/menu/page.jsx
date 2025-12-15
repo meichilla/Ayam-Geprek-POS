@@ -58,11 +58,13 @@ export default function MenuMaster() {
   async function saveMenu(isEdit, data) {
     const {
       category_name,
+      id,
       ...clean
     } = data;
 
     const payload = {
       ...clean,
+      ...(isEdit && { id }),
       is_online: clean.is_gofood || clean.is_grabfood || clean.is_shopeefood,
       price: Number(clean.price),
       price_gofood: clean.is_gofood ? Number(clean.price_gofood || 0) : null,
