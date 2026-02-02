@@ -1,37 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export default function TakeAwayPage() {
   const [orders, setOrders] = useState([]);
 
-  // FILTER STATES
   const [filterType, setFilterType] = useState("today");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
 
   const statusPriority = {
     draft: 0,
     paid: 1,
   };
 
-  async function loadOrders() {
-    const data = await fetch("/api/orders/all?order_type=takeaway").then((r) =>
-      r.json()
-    );
+  // ===========================================================
+  // FETCH
+  // ===========================================================
+  const fetchOrders = useCallback(async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 86400000)
+      .toISOString()
+      .split("T")[0];
 
-    const takeaway = data.filter((o) => o.order_type === "takeaway");
-    const todayKey = new Date().toISOString().split("T")[0];
-    const filteredToday = takeaway.filter((o) =>
-      o.created_at.startsWith(todayKey)
-    );
+    let url = "/api/orders/all?order_type=takeaway";
 
-    setOrders(takeaway.length ? filteredToday : []);
-  }
+    if (filterType === "today") {
+      url += `&date=${today}`;
+    }
+
+    if (filterType === "yesterday") {
+      url += `&date=${yesterday}`;
+    }
+
+    if (filterType === "range") {
+      if (!rangeStart || !rangeEnd) return;
+      url += `&start=${rangeStart}&end=${rangeEnd}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    setOrders(data || []);
+  }, [filterType, rangeStart, rangeEnd]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   async function cancelTakeAway(orderId) {
     if (!confirm("Batalkan pesanan ini?")) return;
@@ -42,7 +56,7 @@ export default function TakeAwayPage() {
       body: JSON.stringify({ order_id: orderId }),
     });
 
-    loadOrders();
+    fetchOrders();
   }
 
   const borderColor = (status) =>
@@ -65,25 +79,6 @@ export default function TakeAwayPage() {
 
   const sortedDates = Object.keys(grouped).sort((a, b) => (a < b ? 1 : -1));
 
-  // ===========================================================
-  // FILTER PROCESSING
-  // ===========================================================
-  const today = new Date().toISOString().split("T")[0];
-  const yesterday = new Date(Date.now() - 86400000)
-    .toISOString()
-    .split("T")[0];
-
-  let filteredDates = sortedDates;
-
-  if (filterType === "today") filteredDates = [today];
-  if (filterType === "yesterday") filteredDates = [yesterday];
-
-  if (filterType === "range" && rangeStart && rangeEnd) {
-    filteredDates = sortedDates.filter(
-      (d) => d >= rangeStart && d <= rangeEnd
-    );
-  }
-
   return (
     <div className="p-4 pb-24 relative max-w-4xl mx-auto">
 
@@ -97,7 +92,6 @@ export default function TakeAwayPage() {
             onChange={(e) => setFilterType(e.target.value)}
             className="border rounded px-3 py-1.5 text-sm bg-white w-full sm:w-auto"
           >
-            <option value="all">Semua</option>
             <option value="today">Hari Ini</option>
             <option value="yesterday">Kemarin</option>
             <option value="range">Range</option>
@@ -112,7 +106,7 @@ export default function TakeAwayPage() {
                 onChange={(e) => setRangeStart(e.target.value)}
               />
 
-              <span className="hidden sm:inline text-sm text-gray-500">–</span>
+              <span className="hidden sm:inline text-sm text-gray-500">-</span>
 
               <input
                 type="date"
@@ -126,10 +120,10 @@ export default function TakeAwayPage() {
       </div>
 
       {/* LIST PER TANGGAL */}
-      {filteredDates.length === 0 ? (
+      {sortedDates.length === 0 ? (
         <div className="text-gray-500 text-sm mt-4">Tidak ada data.</div>
       ) : (
-        filteredDates.map((dateKey) => {
+        sortedDates.map((dateKey) => {
           const dateLabel = new Date(dateKey).toLocaleDateString("id-ID", {
             weekday: "short",
             day: "2-digit",
